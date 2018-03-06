@@ -35,7 +35,7 @@ namespace Serilog.Sinks.MySQL
             string connectionString,
             string tableName = "Logs",
             bool storeTimestampInUtc = false,
-            uint batchSize = 100) : base((int) batchSize)
+            uint batchSize = 100) : base((int)batchSize)
         {
             _connectionString = connectionString;
             _tableName = tableName;
@@ -67,16 +67,33 @@ namespace Serilog.Sinks.MySQL
 
         private MySqlCommand GetInsertCommand(MySqlConnection sqlConnection)
         {
+            //var tableCommandBuilder = new StringBuilder();
+            //tableCommandBuilder.Append($"INSERT INTO  {_tableName} (");
+            //tableCommandBuilder.Append("Timestamp, Level, Message, Exception, Properties) ");
+            //tableCommandBuilder.Append("VALUES (@ts, @lvel, @msg, @ex, @prop)");
+
+            //var cmd = sqlConnection.CreateCommand();
+            //cmd.CommandText = tableCommandBuilder.ToString();
+
+            //cmd.Parameters.Add(new MySqlParameter("@ts", MySqlDbType.VarChar));
+            //cmd.Parameters.Add(new MySqlParameter("@lvel", MySqlDbType.VarChar));
+            //cmd.Parameters.Add(new MySqlParameter("@msg", MySqlDbType.VarChar));
+            //cmd.Parameters.Add(new MySqlParameter("@ex", MySqlDbType.VarChar));
+            //cmd.Parameters.Add(new MySqlParameter("@prop", MySqlDbType.VarChar));
+
             var tableCommandBuilder = new StringBuilder();
             tableCommandBuilder.Append($"INSERT INTO  {_tableName} (");
-            tableCommandBuilder.Append("Timestamp, Level, Message, Exception, Properties) ");
-            tableCommandBuilder.Append("VALUES (@ts, @lvel, @msg, @ex, @prop)");
+            tableCommandBuilder.Append("Time, Level, Index1, Index2, Index3, Message, Exception, Properties) ");
+            tableCommandBuilder.Append("VALUES (@ts, @lvel, @idx1, @idx2, @idx3, @msg, @ex, @prop)");
 
             var cmd = sqlConnection.CreateCommand();
             cmd.CommandText = tableCommandBuilder.ToString();
 
-            cmd.Parameters.Add(new MySqlParameter("@ts", MySqlDbType.VarChar));
+            cmd.Parameters.Add(new MySqlParameter("@ts", MySqlDbType.DateTime));
             cmd.Parameters.Add(new MySqlParameter("@lvel", MySqlDbType.VarChar));
+            cmd.Parameters.Add(new MySqlParameter("@idx1", MySqlDbType.VarChar));
+            cmd.Parameters.Add(new MySqlParameter("@idx2", MySqlDbType.VarChar));
+            cmd.Parameters.Add(new MySqlParameter("@idx3", MySqlDbType.VarChar));
             cmd.Parameters.Add(new MySqlParameter("@msg", MySqlDbType.VarChar));
             cmd.Parameters.Add(new MySqlParameter("@ex", MySqlDbType.VarChar));
             cmd.Parameters.Add(new MySqlParameter("@prop", MySqlDbType.VarChar));
@@ -89,18 +106,55 @@ namespace Serilog.Sinks.MySQL
             try
             {
                 var tableCommandBuilder = new StringBuilder();
+                //tableCommandBuilder.Append($"CREATE TABLE IF NOT EXISTS {_tableName} (");
+                //tableCommandBuilder.Append("id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,");
+                //tableCommandBuilder.Append("Timestamp VARCHAR(100),");
+                //tableCommandBuilder.Append("Level VARCHAR(15),");
+                //tableCommandBuilder.Append("Message TEXT,");
+                //tableCommandBuilder.Append("Exception TEXT,");
+                //tableCommandBuilder.Append("Properties TEXT,");
+                //tableCommandBuilder.Append("_ts TIMESTAMP)");
+
+                //var cmd = sqlConnection.CreateCommand();
+                //cmd.CommandText = tableCommandBuilder.ToString();
+                //cmd.ExecuteNonQuery();
+
                 tableCommandBuilder.Append($"CREATE TABLE IF NOT EXISTS {_tableName} (");
                 tableCommandBuilder.Append("id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,");
-                tableCommandBuilder.Append("Timestamp VARCHAR(100),");
+                tableCommandBuilder.Append("Time Datetime,");
                 tableCommandBuilder.Append("Level VARCHAR(15),");
+                tableCommandBuilder.Append("Index1 VARCHAR(100),");
+                tableCommandBuilder.Append("Index2 VARCHAR(100),");
+                tableCommandBuilder.Append("Index3 VARCHAR(100),");
                 tableCommandBuilder.Append("Message TEXT,");
                 tableCommandBuilder.Append("Exception TEXT,");
-                tableCommandBuilder.Append("Properties TEXT,");
-                tableCommandBuilder.Append("_ts TIMESTAMP)");
+                tableCommandBuilder.Append("Properties TEXT)");
 
                 var cmd = sqlConnection.CreateCommand();
                 cmd.CommandText = tableCommandBuilder.ToString();
                 cmd.ExecuteNonQuery();
+
+                //
+                string sql = "";
+                sql = string.Format("CREATE INDEX {0}_IDX1 on {0}(Time)", _tableName);
+                cmd.CommandText = sql;
+                try { cmd.ExecuteNonQuery(); } catch { }
+
+                sql = string.Format("CREATE INDEX {0}_IDX2 on {0}(Time, Index1)", _tableName);
+                cmd.CommandText = sql;
+                try { cmd.ExecuteNonQuery(); } catch { }
+
+                sql = string.Format("CREATE INDEX {0}_IDX3 on {0}(Time, Index1, Index2)", _tableName);
+                cmd.CommandText = sql;
+                try { cmd.ExecuteNonQuery(); } catch { }
+
+                sql = string.Format("CREATE INDEX {0}_IDX4 on {0}(Time, Index1, Index2, Index3)", _tableName);
+                cmd.CommandText = sql;
+                try { cmd.ExecuteNonQuery(); } catch { }
+
+                sql = string.Format("CREATE INDEX {0}_IDX5 on {0}(Time, Level)", _tableName);
+                cmd.CommandText = sql;
+                try { cmd.ExecuteNonQuery(); } catch { }
             }
             catch (Exception ex)
             {
@@ -122,20 +176,32 @@ namespace Serilog.Sinks.MySQL
 
                         foreach (var logEvent in logEventsBatch)
                         {
-                            insertCommand.Parameters["@ts"]
-                                .Value = _storeTimestampInUtc
-                                ? logEvent.Timestamp.ToUniversalTime()
-                                    .ToString("yyyy-MM-dd HH:mm:ss.fffzzz")
-                                : logEvent.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fffzzz");
+                            //insertCommand.Parameters["@ts"]
+                            //    .Value = _storeTimestampInUtc
+                            //    ? logEvent.Timestamp.ToUniversalTime()
+                            //        .ToString("yyyy-MM-dd HH:mm:ss.fffzzz")
+                            //    : logEvent.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fffzzz");
 
-                            insertCommand.Parameters["@lvel"]
-                                .Value = logEvent.Level.ToString();
-                            insertCommand.Parameters["@msg"]
-                                .Value = logEvent.MessageTemplate.ToString();
-                            insertCommand.Parameters["@ex"]
-                                .Value = logEvent.Exception?.ToString();
-                            insertCommand.Parameters["@prop"]
-                                .Value = logEvent.Properties.Json();
+                            //insertCommand.Parameters["@lvel"]
+                            //    .Value = logEvent.Level.ToString();
+                            //insertCommand.Parameters["@msg"]
+                            //    .Value = logEvent.MessageTemplate.ToString();
+                            //insertCommand.Parameters["@ex"]
+                            //    .Value = logEvent.Exception?.ToString();
+                            //insertCommand.Parameters["@prop"]
+                            //    .Value = logEvent.Properties.Json();
+
+                            insertCommand.Parameters["@ts"].Value = DateTime.Now;
+
+                            string[] ss = logEvent.MessageTemplate.ToString().Split(new char[] { ' ' });
+
+                            insertCommand.Parameters["@lvel"].Value = logEvent.Level.ToString();
+                            insertCommand.Parameters["@idx1"].Value = ss.Length > 0 ? ss[0].Substring(0, ss[0].Length >= 100 ? 100 : ss[0].Length) : "";
+                            insertCommand.Parameters["@idx2"].Value = ss.Length > 1 ? ss[1].Substring(0, ss[1].Length >= 100 ? 100 : ss[1].Length) : "";
+                            insertCommand.Parameters["@idx3"].Value = ss.Length > 2 ? ss[2].Substring(0, ss[2].Length >= 100 ? 100 : ss[2].Length) : "";
+                            insertCommand.Parameters["@msg"].Value = logEvent.MessageTemplate.ToString();
+                            insertCommand.Parameters["@ex"].Value = logEvent.Exception?.ToString();
+                            insertCommand.Parameters["@prop"].Value = logEvent.Properties.Json();
 
                             await insertCommand.ExecuteNonQueryAsync()
                                 .ConfigureAwait(false);
