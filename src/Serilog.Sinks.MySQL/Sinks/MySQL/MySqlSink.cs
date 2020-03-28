@@ -15,6 +15,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using Serilog.Core;
@@ -30,19 +31,78 @@ namespace Serilog.Sinks.MySQL
         private readonly string _connectionString;
         private readonly bool _storeTimestampInUtc;
         private readonly string _tableName;
+        private readonly int _rollingInterval;
+        private readonly int _retainedLogCountLimit;
 
         public MySqlSink(
             string connectionString,
             string tableName = "Logs",
+            int rollingInterval = 4,
+            int retainedLogCountLimit = 72,
             bool storeTimestampInUtc = false,
             uint batchSize = 100) : base((int)batchSize)
         {
             _connectionString = connectionString;
             _tableName = tableName;
+            _rollingInterval = rollingInterval;
+            _retainedLogCountLimit = retainedLogCountLimit;
             _storeTimestampInUtc = storeTimestampInUtc;
 
             var sqlConnection = GetSqlConnection();
             CreateTable(sqlConnection);
+
+            Thread thread = new Thread(new ThreadStart(cleanLogs));
+            thread.Start();
+        }
+
+        private void cleanLogs()
+        {
+            DateTime lastDay = DateTime.Now.Date.AddDays(-1);
+            while (true)
+            {
+                try
+                {
+                    if (DateTime.Now.Date <= lastDay) continue;
+                    if (DateTime.Now.Hour < 2) continue;
+                    if (_rollingInterval == 0) continue;
+
+                    var sqlConnection = GetSqlConnection();
+                    var cmd = sqlConnection.CreateCommand();
+
+                    DateTime cleanTime = DateTime.Now;
+                    switch(_rollingInterval)
+                    {
+                        case 1: //year
+                            cleanTime = cleanTime.AddYears(-_retainedLogCountLimit);
+                            break;
+                        case 2: //month
+                            cleanTime = cleanTime.AddMonths(-_retainedLogCountLimit);
+                            break;
+                        case 3: //day
+                            cleanTime = cleanTime.AddDays(-_retainedLogCountLimit);
+                            break;
+                        case 4: //hour
+                            cleanTime = cleanTime.AddHours(-_retainedLogCountLimit);
+                            break;
+                        case 5: //mintue
+                            cleanTime = cleanTime.AddMinutes(-_retainedLogCountLimit);
+                            break;
+                    }
+                    string sql = string.Format("delete from `{0}` where time < '{1}'", _tableName, cleanTime.ToString("yyyy-MM-dd HH:mm:ss"));
+                    cmd.CommandText = sql;
+                    cmd.ExecuteNonQuery();
+
+                    sql = string.Format("OPTIMIZE TABLE `{0}`", _tableName);
+                    cmd.CommandText = sql;
+                    cmd.ExecuteNonQuery();
+
+                    lastDay = DateTime.Now.Date;
+                }
+                finally
+                {
+                    Thread.Sleep(60 * 1000);
+                }
+            }
         }
 
         public void Emit(LogEvent logEvent)

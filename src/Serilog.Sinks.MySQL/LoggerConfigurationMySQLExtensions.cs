@@ -31,6 +31,8 @@ namespace Serilog
         /// <param name="loggerConfiguration">The logger configuration.</param>
         /// <param name="connectionString">The connection string to MySQL database.</param>
         /// <param name="tableName">The name of the MySQL table to store log.</param>
+        /// <param name="rollingInterval">0-infinite, 1-year, 2-month, 3-day, 4-hour, 5-minute</param>
+        /// <param name="retainedLogCountLimit"></param>
         /// <param name="restrictedToMinimumLevel">The minimum log event level required in order to write an event to the sink.</param>
         /// <param name="storeTimestampInUtc">Store timestamp in UTC format</param>
         /// <param name="batchSize">Number of log messages to be sent as batch. Supported range is between 1 and 1000</param>
@@ -40,6 +42,8 @@ namespace Serilog
             this LoggerSinkConfiguration loggerConfiguration,
             string connectionString,
             string tableName = "Logs",
+            int rollingInterval = 4,
+            int retainedLogCountLimit = 72,
             LogEventLevel restrictedToMinimumLevel = LevelAlias.Minimum,
             bool storeTimestampInUtc = false,
             uint batchSize = 100)
@@ -55,7 +59,7 @@ namespace Serilog
             try
             {
                 return loggerConfiguration.Sink(
-                    new MySqlSink(connectionString, tableName, storeTimestampInUtc, batchSize),
+                    new MySqlSink(connectionString, tableName, rollingInterval, retainedLogCountLimit, storeTimestampInUtc, batchSize),
                     restrictedToMinimumLevel);
             }
             catch (Exception ex)
