@@ -68,35 +68,43 @@ namespace Serilog.Sinks.MySQL
 
                     var sqlConnection = GetSqlConnection();
                     var cmd = sqlConnection.CreateCommand();
+                    cmd.CommandTimeout = 60 * 1000;
 
-                    DateTime cleanTime = DateTime.Now;
-                    switch(_rollingInterval)
+                    try
                     {
-                        case 1: //year
-                            cleanTime = cleanTime.AddYears(-_retainedLogCountLimit);
-                            break;
-                        case 2: //month
-                            cleanTime = cleanTime.AddMonths(-_retainedLogCountLimit);
-                            break;
-                        case 3: //day
-                            cleanTime = cleanTime.AddDays(-_retainedLogCountLimit);
-                            break;
-                        case 4: //hour
-                            cleanTime = cleanTime.AddHours(-_retainedLogCountLimit);
-                            break;
-                        case 5: //mintue
-                            cleanTime = cleanTime.AddMinutes(-_retainedLogCountLimit);
-                            break;
+                        DateTime cleanTime = DateTime.Now;
+                        switch (_rollingInterval)
+                        {
+                            case 1: //year
+                                cleanTime = cleanTime.AddYears(-_retainedLogCountLimit);
+                                break;
+                            case 2: //month
+                                cleanTime = cleanTime.AddMonths(-_retainedLogCountLimit);
+                                break;
+                            case 3: //day
+                                cleanTime = cleanTime.AddDays(-_retainedLogCountLimit);
+                                break;
+                            case 4: //hour
+                                cleanTime = cleanTime.AddHours(-_retainedLogCountLimit);
+                                break;
+                            case 5: //mintue
+                                cleanTime = cleanTime.AddMinutes(-_retainedLogCountLimit);
+                                break;
+                        }
+                        string sql = string.Format("delete from `{0}` where time < '{1}'", _tableName, cleanTime.ToString("yyyy-MM-dd HH:mm:ss"));
+                        cmd.CommandText = sql;
+                        cmd.ExecuteNonQuery();
+
+                        sql = string.Format("OPTIMIZE TABLE `{0}`", _tableName);
+                        cmd.CommandText = sql;
+                        cmd.ExecuteNonQuery();
+
+                        lastDay = DateTime.Now.Date;
                     }
-                    string sql = string.Format("delete from `{0}` where time < '{1}'", _tableName, cleanTime.ToString("yyyy-MM-dd HH:mm:ss"));
-                    cmd.CommandText = sql;
-                    cmd.ExecuteNonQuery();
-
-                    sql = string.Format("OPTIMIZE TABLE `{0}`", _tableName);
-                    cmd.CommandText = sql;
-                    cmd.ExecuteNonQuery();
-
-                    lastDay = DateTime.Now.Date;
+                    catch(Exception ex)
+                    {
+                        SelfLog.WriteLine(ex.Message);
+                    }
                 }
                 finally
                 {
